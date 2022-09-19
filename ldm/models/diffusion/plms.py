@@ -139,6 +139,7 @@ class PLMSSampler(object):
         iterator = tqdm(time_range, desc='PLMS Sampler', total=total_steps)
         old_eps = []
 
+        # generate iteratively by total_steps
         for i, step in enumerate(iterator):
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
@@ -159,7 +160,7 @@ class PLMSSampler(object):
             img, pred_x0, e_t = outs
             old_eps.append(e_t)
             if len(old_eps) >= 4:
-                old_eps.pop(0)
+                old_eps.pop(0) # save the last 3 predictions of eps
             if callback: callback(i)
             if img_callback: img_callback(pred_x0, i)
 

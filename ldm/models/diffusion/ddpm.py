@@ -560,6 +560,21 @@ class LatentDiffusion(DDPM):
             assert hasattr(self.cond_stage_model, self.cond_stage_forward)
             c = getattr(self.cond_stage_model, self.cond_stage_forward)(c)
         return c
+    
+    def get_learned_conditioning_for_incontext(self, c, t):
+        if self.cond_stage_forward is None:
+            if hasattr(self.cond_stage_model, 'incontext_encode') and callable(self.cond_stage_model.encode):
+                c = self.cond_stage_model.incontext_encode(c, t)
+                if isinstance(c, DiagonalGaussianDistribution):
+                    c = c.mode()
+            else:
+                # c = self.cond_stage_model(c)
+                raise NotImplementedError
+        else:
+            # assert hasattr(self.cond_stage_model, self.cond_stage_forward)
+            # c = getattr(self.cond_stage_model, self.cond_stage_forward)(c)
+            raise NotImplementedError
+        return c
 
     def meshgrid(self, h, w):
         y = torch.arange(0, h).view(h, 1, 1).repeat(1, w, 1)

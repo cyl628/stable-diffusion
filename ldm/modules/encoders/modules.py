@@ -7,6 +7,7 @@ from transformers import CLIPTokenizer, CLIPTextModel
 import kornia
 
 from ldm.modules.x_transformer import Encoder, TransformerWrapper  # TODO: can we directly rely on lucidrains code and simply add this as a reuirement? --> test
+import numpy as np
 
 
 class AbstractEncoder(nn.Module):
@@ -156,10 +157,53 @@ class FrozenCLIPEmbedder(AbstractEncoder):
         outputs = self.transformer(input_ids=tokens)
 
         z = outputs.last_hidden_state
+        print("CLIP embedding size:", z.size())
+        print(z[-5:, :20])
         return z
 
     def encode(self, text):
         return self(text)
+    
+    def incontext_encode(self, context, text):
+        # context: List[List[str]]
+        # text: List[str]
+
+        # default join by ";"
+        assert len(context) == len(text), print("target and context must be of same length")
+        tokens = []
+        masks = []
+        for i in range(len(context)):
+            target_s = text[i]
+            context_s = context[i]
+            target_ids = self.tokenizer(target_s, padding=False)["input_ids"]
+            context_ids = self.tokenizer(context_s, padding=False, add_special_tokens=False)["input_ids"]
+            length_remain = self.max_length - len(target_ids)
+            if length_remain < 0:
+                print("target text too long, degraded to NA context scenario")
+                target_ids = target_ids[:self.max_length]
+                context_ids = []
+            else:
+                context_ids = context_ids[:length_remain]
+
+            input_ids = context_ids + target_ids
+            mask = [0] * len(context_ids) + [1] * len(target_ids)
+            while len(input_ids) < self.max_length:
+                input_ids.append(self.tokenizer.pad_token_id)
+                mask.append(0)
+            assert len(input_ids) == len(mask) == self.max_length
+
+            masks.append(mask)
+            tokens.append(input_ids)
+        
+        tokens = torch.LongTensor(np.array(tokens)).de(self.device)
+        masks = torch.LongTensor(np.array(masks)).to(self.device)
+        outputs = self.transformer(input_ids=tokens)
+        # default one batch contain same instances, so using mask will still result in one matrix
+        z = outputs.last_hidden_state
+        z = z[masks==1].view(z.size(0), -1, 768)
+        print("CLIP embedding size:", z.size())
+        return z
+
 
 
 class FrozenCLIPTextEmbedder(nn.Module):
