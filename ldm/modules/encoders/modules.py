@@ -174,7 +174,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
         masks = []
         for i in range(len(context)):
             target_s = text[i]
-            context_s = context[i]
+            context_s = ";".join(context[i])
             target_ids = self.tokenizer(target_s, padding=False)["input_ids"]
             context_ids = self.tokenizer(context_s, padding=False, add_special_tokens=False)["input_ids"]
             length_remain = self.max_length - len(target_ids)
@@ -195,8 +195,11 @@ class FrozenCLIPEmbedder(AbstractEncoder):
             masks.append(mask)
             tokens.append(input_ids)
         
-        tokens = torch.LongTensor(np.array(tokens)).de(self.device)
-        masks = torch.LongTensor(np.array(masks)).to(self.device)
+        # tokens = torch.LongTensor(np.array(tokens)).to(self.device)
+        # masks = torch.LongTensor(np.array(masks)).to(self.device)
+        print(tokens)
+        tokens = torch.LongTensor(tokens).to(self.device)
+        masks = torch.LongTensor(masks).to(self.device)
         outputs = self.transformer(input_ids=tokens)
         # default one batch contain same instances, so using mask will still result in one matrix
         z = outputs.last_hidden_state

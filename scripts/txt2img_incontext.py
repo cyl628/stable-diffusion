@@ -143,11 +143,11 @@ def simple_generate(opt, model, data, sampler, wm_encoder, prefix="individual im
                         x_checked_image_torch = torch.from_numpy(x_checked_image).permute(0, 3, 1, 2)
 
                         if not opt.skip_save:
-                            for x_sample in x_checked_image_torch:
+                            for i, x_sample in enumerate(x_checked_image_torch):
                                 x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
                                 img = Image.fromarray(x_sample.astype(np.uint8))
                                 img = put_watermark(img, wm_encoder)
-                                img.save(os.path.join(sample_path, f'{prompts[0].replace(" ", "_")}.png'))
+                                img.save(os.path.join(sample_path, f'{prompts[0].replace(" ", "_")}-{i:03}.png'))
                                 base_count += 1
 
                         if not opt.skip_grid:
@@ -201,8 +201,8 @@ def in_context_generate(opt, model, context_data, target_data, sampler, wm_encod
                         context = context_data[i]
                         target = target_data[i]
                         uc = None
-                        if opt.scale != 1.0:
-                            uc = model.get_learned_conditioning(opt.n_samples * [""])
+                        # if opt.scale != 1.0:
+                        #     uc = model.get_learned_conditioning(opt.n_samples * [""])
                         # if isinstance(prompts, tuple):
                         #     prompts = list(prompts)
                         c = model.get_learned_conditioning_for_incontext(context, target)
@@ -226,11 +226,11 @@ def in_context_generate(opt, model, context_data, target_data, sampler, wm_encod
                         x_checked_image_torch = torch.from_numpy(x_checked_image).permute(0, 3, 1, 2)
 
                         if not opt.skip_save:
-                            for x_sample in x_checked_image_torch:
+                            for i, x_sample in enumerate(x_checked_image_torch):
                                 x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
                                 img = Image.fromarray(x_sample.astype(np.uint8))
                                 img = put_watermark(img, wm_encoder)
-                                img.save(os.path.join(sample_path, f'{target[0].replace(" ", "_")}.png'))
+                                img.save(os.path.join(sample_path, f'{target[0].replace(" ", "_")}-{i:03}.png'))
                                 base_count += 1
 
                         if not opt.skip_grid:
@@ -441,13 +441,14 @@ def main():
         data.append(batch_size*[c])
     simple_generate(opt, model, data, sampler, wm_encoder, prefix="context image generation")
 
+    # reset seed
+    seed_everything(opt.seed)
     # get in-context image
+    print("context:", prompts[:-1])
+    print("target:", prompts[-1])
     context_data = [[prompts[:-1]] * batch_size]
     target_data = [batch_size * [prompts[-1]]]
     in_context_generate(opt, model, context_data, target_data, sampler, wm_encoder)
-
-    
-
 
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
           f" \nEnjoy.")
